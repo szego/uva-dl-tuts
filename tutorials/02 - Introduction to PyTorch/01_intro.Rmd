@@ -1,0 +1,218 @@
+
+This is an RMarkdown notebook. I'll probably do all of the tutorials in these (using the reticulate R package). No reason in particular other than I'm really comfortable with R/RStudio. And I will probably cheat here and there by doing some data processing or plotting in R instead of Python (but I do want to get as used to Polars as I can).
+
+I should make sure I have the main python libs installed.
+
+```{python}
+import os
+import math
+import numpy as np
+import time
+
+## Imports for plotting
+import matplotlib.pyplot as plt
+
+from matplotlib.colors import to_rgba
+import seaborn as sns
+sns.set()
+
+## Progress bar
+from tqdm.notebook import tqdm
+```
+
+Yup, looks good.
+
+# The basics of PyTorch
+
+```{python}
+import torch
+print("Using torch", torch.__version__)
+```
+
+# Tensors
+
+```{python}
+x = torch.Tensor(2, 3, 4)
+x
+```
+
+Instantiating a tensor like this allocates memory to it but doesn't clear away what was there before. So it will contain whatever junk data happened to be there.
+
+There are some broadcast functions that can be used instead to fill it with some initial values:
+
+- `torch.zeros` Creates a tensor filled with zeros
+- `torch.ones` Creates a tensor filled with ones
+- `torch.rand` Creates a tensor with draws from Uniform(0,1)
+- `torch.randn` Creates a tensor with random draws from Normal(0,1)
+- `torch.arange` Creates a tensor containing sequential values
+- `torch.Tensor (input list)` Creates a tensor from the list elements you provide
+
+`torch.arange` has a few different options:
+
+```{python}
+torch.arange(5)  # [0, 1, 2, 3, 4]
+torch.arange(5, 10)  # [5, 6, 7, 8, 9]
+torch.arange(5, 10, 0.5)  # [5, 5.5, 6, 6.5, ..., 9.5]
+```
+
+They all exclude the top end of the range. That'll take some getting used to.
+
+Get the tensor's shape:
+
+```{python}
+# These are equivalent
+x.shape
+x.size()
+a, b, c = x.shape
+a
+b
+c
+```
+
+We can access a single dimension like so:
+
+```{python}
+x.shape[0]
+```
+
+And we can get the number of dimensions like so:
+
+```{python}
+len(x.shape)
+```
+
+## Tensors to and from numpy
+
+```{python}
+np_arr = np.array([[1, 2], [3, 4]])
+x = torch.from_numpy(np_arr)
+
+# Tensor from numpy array
+x
+
+# back to a numpy array
+x.numpy()
+```
+
+From the tutorial:
+
+> The conversion of tensors to numpy require the tensor to be on the CPU, and not the GPU (more on GPU support in a later section). In case you have a tensor on GPU, you need to call .cpu() on the tensor beforehand. Hence, you get a line like np_arr = tensor.cpu().numpy().
+
+## Operations
+
+Adding and adding-in-place:
+
+```{python}
+x = torch.rand(2, 3)
+y = torch.rand(2, 3)
+
+# does not modify x
+x+y
+
+# adds y to x in place
+# effectively the same as x = x + y
+x.add_(y)
+
+# Now x is different
+x
+```
+
+> In-place operations are usually marked with a underscore postfix (e.g. “add_” instead of “add”).
+
+Changing the shape of a tensor:
+
+```{python}
+x.view(3, 2)
+```
+
+Looks like it proceeds by row instead of by column.
+
+```{python}
+y = torch.arange(6)
+y.view(2,3)
+```
+
+Indeed!
+
+Permuting dimensions:
+
+```{python}
+x = torch.rand(3, 4, 5)
+x.size()
+x.permute(2, 0, 1).size()
+```
+
+`permute()` must be given the same number of dimensions as the tensor. For example, `x.permute(2, 0)` returns an error.
+
+### Matrix math
+
+Torch has a bunch of optimized functions for matrix math:
+
+- `torch.matmul` Performs the matrix product over two tensors, where the specific behavior depends on the dimensions. If both inputs are matrices (2-dimensional tensors), it performs the standard matrix product. For higher dimensional inputs, the function supports broadcasting (for details see the documentation). Can also be written as `a @ b`, similar to numpy.
+
+- `torch.mm` Performs the matrix product over two matrices, but doesn’t support broadcasting.
+
+- `torch.bmm` Performs the matrix product with a support batch dimension. If the first tensor
+is of shape (b, n, m), and the second tensor (b, m, p), the output is of shape (b, n, p). Basically it uses the first dimension as an index and multiplies the matrices of dimension (n,m) from the first argument by the matrices of dimension (n,p) from the second argument at each index.
+
+- `torch.einsum` Performs matrix multiplications and more (i.e. sums of products) using the Einstein summation convention.
+
+Hah `torch.einsum` sounds neat. Let's try getting the trace of a matrix.
+
+```{python}
+x = torch.arange(9).view(3, 3)
+torch.einsum("ii", x)
+```
+
+The usual matrix product:
+
+```{python}
+x = torch.rand(3,3)
+y = torch.rand(3,3)
+
+# are equivalent
+torch.matmul(x, y)
+torch.einsum("ij,jk", x, y)
+```
+
+Commuting x and y:
+
+```{python}
+torch.matmul(y, x)
+torch.einsum("ik,ji", x, y)
+```
+
+This is probably most useful when x and y have different dimensions. For example, we can treat an extra dimension as a batch dimension:
+
+```{python}
+z = torch.rand(3, 3, 5)
+ans = torch.einsum("ij,jkl", x, z)
+
+# same shape as z
+ans.size()
+
+# these are equal
+ans[:,:,2]
+torch.mm(x, z[:,:,2])
+```
+
+Sick.
+
+It'll take me a while to remember this indexing stuff:
+
+```{python}
+x = torch.arange(12).view(3, 4)
+
+x
+
+x[:, 1]   # Second column
+
+x[0]      # First row
+
+x[:2, -1] # First two rows, last column
+
+x[1:3, :] # Middle two rows
+```
+
+
+
