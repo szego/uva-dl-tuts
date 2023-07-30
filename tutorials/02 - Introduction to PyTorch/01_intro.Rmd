@@ -182,11 +182,11 @@ torch.matmul(y, x)
 torch.einsum("ik,ji", x, y)
 ```
 
-This is probably most useful when x and y have different dimensions. For example, we can treat an extra dimension as a batch dimension:
+This is probably most useful when x and y have different dimensions. For example, we can treat any dimension as a batch dimension:
 
 ```{python}
 z = torch.rand(3, 3, 5)
-ans = torch.einsum("ij,jkl", x, z)
+ans = torch.einsum("ij,jkl", x, z)  # third dim is batch
 
 # same shape as z
 ans.size()
@@ -198,19 +198,48 @@ torch.mm(x, z[:,:,2])
 
 Sick.
 
+Can we use it to implement determinants?
+
+```{python}
+x = torch.randn(9).view(3, 3)
+
+# build the Levi-Civita tensor
+levi_civita = torch.zeros(3, 3, 3)
+levi_civita[0, 1, 2] = 1
+levi_civita[1, 2, 0] = 1
+levi_civita[2, 0, 1] = 1
+levi_civita[2, 1, 0] = -1
+levi_civita[1, 0, 2] = -1
+levi_civita[0, 2, 1] = -1
+
+levi_civita
+
+# these are equal
+x.det()
+torch.einsum("ijk,i,j,k", levi_civita, x[0,], x[1,], x[2,])
+```
+
+Ooo let me take the cross product of the first two rows of x.
+
+```{python}
+# these are equal
+torch.linalg.cross(x[0,], x[1,])
+torch.einsum("ijk,i,j", levi_civita, x[0,], x[1,])
+```
+
+I wonder what kinds of situations would require `einsum()` instead of just using the built-in common operations.
+
+## Other indexing
+
 It'll take me a while to remember this indexing stuff:
 
 ```{python}
 x = torch.arange(12).view(3, 4)
 
 x
-
 x[:, 1]   # Second column
-
 x[0]      # First row
-
 x[:2, -1] # First two rows, last column
-
 x[1:3, :] # Middle two rows
 ```
 
